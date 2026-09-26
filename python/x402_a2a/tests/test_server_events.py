@@ -375,3 +375,22 @@ async def test_progress_streams_with_queue_backpressure():
         events[-1].status.message.metadata[x402Metadata.STATUS_KEY]
         == "payment-completed"
     )
+
+
+@pytest.mark.asyncio
+async def test_incoming_agent_message_does_not_replace_receipt_history():
+    merchant, task, request, old_receipt = setup_request()
+    request.message.role = "agent"
+    merchant.settle_payment = AsyncMock(
+        return_value=SettleResponse(
+            success=True, network="base-sepolia", transaction="0xsettled"
+        )
+    )
+    store = CopyingTaskStore()
+    await store.save(task)
+    result = await asyncio.wait_for(
+        DefaultRequestHandler(merchant, store).on_message_send(request), 2
+    )
+    receipts = result.status.message.metadata[x402Metadata.RECEIPTS_KEY]
+    assert receipts[0] == old_receipt
+    assert len(receipts) == 2

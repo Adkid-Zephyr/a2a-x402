@@ -142,6 +142,10 @@ class x402ServerExecutor(x402BaseExecutor, metaclass=ABCMeta):
         # with older snapshots or accept a receipt supplied by the client.
         if task.status.message is None:
             for message in reversed(task.history or []):
+                # A payment submission can itself use role=agent. It is still
+                # incoming data, not a previously issued payment receipt.
+                if context.message and message.message_id == context.message.message_id:
+                    continue
                 if message.role == Role.agent and (message.metadata or {}).get(
                     x402Metadata.RECEIPTS_KEY
                 ):
